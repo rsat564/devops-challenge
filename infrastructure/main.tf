@@ -189,7 +189,7 @@ module "storage" {
   soft_delete_retention_days           = var.environment == "prod" ? 30 : 7
   container_soft_delete_retention_days = var.environment == "prod" ? 30 : 7
 
-  lifecycle_rules             = each.value.lifecycle_rules
+  lifecycle_rules = each.value.lifecycle_rules
 
   tags = merge(local.common_tags, { StorageAccount = each.key })
 }
@@ -318,7 +318,7 @@ resource "azurerm_network_interface_backend_address_pool_association" "vm" {
   for_each = module.vm
 
   network_interface_id    = each.value.nic_id
-  ip_configuration_name  = "internal"
+  ip_configuration_name   = "internal"
   backend_address_pool_id = azurerm_lb_backend_address_pool.this.id
 }
 
