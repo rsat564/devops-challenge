@@ -62,7 +62,7 @@ terraform apply -var-file=environments/dev-eastus.tfvars
 | Setting | Value |
 |---------|-------|
 | Resource Group | `rg-cloudops-tfstate` |
-| Storage Account | `stcloudopstfstate` |
+| Storage Account | `srcloudopstfstate` |
 | Container | `tfstate` |
 | State Keys | `dev-eastus/terraform.tfstate`, `test-eastus2/terraform.tfstate`, `prod-westeurope/terraform.tfstate` |
 
