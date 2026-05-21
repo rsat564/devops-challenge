@@ -190,7 +190,6 @@ module "storage" {
   container_soft_delete_retention_days = var.environment == "prod" ? 30 : 7
 
   lifecycle_rules             = each.value.lifecycle_rules
-  encryption_key_vault_key_id = azurerm_key_vault_key.storage_encryption.id
 
   tags = merge(local.common_tags, { StorageAccount = each.key })
 }

@@ -111,6 +111,8 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
+          # Use pipefail so 'tee' doesn't swallow the Terraform error
+          set -o pipefail 
           terraform plan \
             -var-file=environments/${{ env.ENV_FOLDER }}/${{ matrix.environment }}.tfvars \
             -out=${{ matrix.environment }}.tfplan \
