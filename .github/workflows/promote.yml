@@ -1,0 +1,118 @@
+name: "Promote Environment"
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Source environment"
+        required: true
+        type: choice
+        options:
+          - dev-eastus
+          - test-eastus
+      target:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - test-eastus
+          - prod-eastus
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: "1.7.0"
+  WORKING_DIR: infrastructure
+
+jobs:
+  validate:
+    name: "Validate Promotion"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check promotion path
+        run: |
+          SOURCE_ENV=$(echo "${{ inputs.source }}" | cut -d'-' -f1)
+          TARGET_ENV=$(echo "${{ inputs.target }}" | cut -d'-' -f1)
+          if [ "$SOURCE_ENV" == "dev" ] && [ "$TARGET_ENV" == "prod" ]; then
+            echo "::error::Cannot skip test. Promote dev→test→prod."
+            exit 1
+          fi
+          echo "Valid: ${{ inputs.source }} → ${{ inputs.target }}"
+
+  plan:
+    name: "Plan - ${{ inputs.target }}"
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: ${{ inputs.target }}-plan
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v2
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+
+      - name: Extract Environment Folder
+        run: echo "ENV_FOLDER=$(echo ${{ inputs.target }} | cut -d'-' -f1)" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        run: terraform init -backend-config=environments/${{ env.ENV_FOLDER }}/${{ inputs.target }}.backend.hcl
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var-file=environments/${{ env.ENV_FOLDER }}/${{ inputs.target }}.tfvars \
+            -out=promote.tfplan -input=false
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promote-plan-${{ inputs.target }}
+          path: ${{ env.WORKING_DIR }}/promote.tfplan
+
+  apply:
+    name: "Apply - ${{ inputs.target }}"
+    runs-on: ubuntu-latest
+    needs: plan
+    environment: ${{ inputs.target }}
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v2
+        with:
+          creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: promote-plan-${{ inputs.target }}
+          path: ${{ env.WORKING_DIR }}
+
+      - name: Extract Environment Folder
+        run: echo "ENV_FOLDER=$(echo ${{ inputs.target }} | cut -d'-' -f1)" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        run: terraform init -backend-config=environments/${{ env.ENV_FOLDER }}/${{ inputs.target }}.backend.hcl
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false promote.tfplan
+        working-directory: ${{ env.WORKING_DIR }}
