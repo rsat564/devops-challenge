@@ -233,13 +233,6 @@ storage_accounts = {
     ]
     lifecycle_rules = [
       {
-        name                       = "archive-logs"
-        prefix_match               = ["logs/"]
-        tier_to_cool_after_days    = 14
-        tier_to_archive_after_days = 60
-        delete_after_days          = 730
-      },
-      {
         name                      = "cleanup-versions"
         version_delete_after_days = 180
       }

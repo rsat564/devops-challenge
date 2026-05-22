@@ -140,7 +140,7 @@ vms = {
 storage_accounts = {
   "app" = {
     account_tier     = "Standard"
-    replication_type = "ZRS"
+    replication_type = "LRS"
     containers = {
       "data" = { access_type = "private" }
       "logs" = { access_type = "private" }
