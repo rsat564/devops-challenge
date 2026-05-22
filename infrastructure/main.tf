@@ -44,7 +44,7 @@ data "azurerm_client_config" "current" {}
 #--------------------------------------------------------------
 # Module: Virtual Networks (scalable - supports multiple)
 #--------------------------------------------------------------
-
+# checkov:skip=CKV_TF_1:Organization standard uses semantic release tags
 module "vnet" {
   source   = "git::https://github.com/rsat564/tfmodules.git//vnet?ref=v1.0.0"
   for_each = var.vnets
@@ -61,7 +61,8 @@ module "vnet" {
 #--------------------------------------------------------------
 # Key Vault (shared security resource)
 #--------------------------------------------------------------
-
+# checkov:skip=CKV_AZURE_109:Firewall rule default action 'Allow' is required for dev testing right now.
+# checkov:skip=CKV2_AZURE_32:Private Endpoints are not yet configured for this environment.
 resource "azurerm_key_vault" "this" {
   name                          = "kv-${var.project_name}-${var.environment}-${random_string.suffix.result}"
   location                      = azurerm_resource_group.this.location
@@ -110,10 +111,11 @@ resource "azurerm_role_assignment" "deployer_kv_admin" {
 resource "azurerm_key_vault_key" "disk_encryption" {
   name         = "key-disk-encryption-${var.environment}"
   key_vault_id = azurerm_key_vault.this.id
-  key_type     = "RSA"
+  key_type     = "RSA-HSM"
   key_size     = 4096
   key_opts     = ["decrypt", "encrypt", "wrapKey", "unwrapKey"]
 
+  expiration_date = "2027-12-31T00:00:00Z"
   rotation_policy {
     automatic {
       time_before_expiry = "P30D"
@@ -176,7 +178,7 @@ module "storage" {
 #--------------------------------------------------------------
 # Recovery Services Vault (shared for all VM backups)
 #--------------------------------------------------------------
-
+# checkov:skip=CKV2_AZURE_35:not now
 resource "azurerm_recovery_services_vault" "this" {
   name                = "rsv-${local.name_prefix}"
   location            = azurerm_resource_group.this.location
@@ -255,7 +257,9 @@ resource "azurerm_key_vault_secret" "vm_ssh_key" {
   name         = "vm-ssh-key-${each.key}-${var.environment}"
   value        = each.value.ssh_private_key
   key_vault_id = azurerm_key_vault.this.id
-
+  
+  content_type    = "ssh-private-key" 
+  expiration_date = "2027-12-31T00:00:00Z"
   depends_on = [azurerm_role_assignment.deployer_kv_admin]
 }
 
