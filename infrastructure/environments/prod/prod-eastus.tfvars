@@ -231,12 +231,7 @@ storage_accounts = {
       { vnet_key = "app", subnet_key = "snet-web" },
       { vnet_key = "app", subnet_key = "snet-api" }
     ]
-    lifecycle_rules = [
-      {
-        name                      = "cleanup-versions"
-        version_delete_after_days = 180
-      }
-    ]
+    lifecycle_rules = []
   }
 
   "backup" = {

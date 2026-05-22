@@ -158,10 +158,6 @@ storage_accounts = {
         tier_to_cool_after_days    = 30
         tier_to_archive_after_days = 90
         delete_after_days          = 365
-      },
-      {
-        name                      = "cleanup-versions"
-        version_delete_after_days = 90
       }
     ]
   }
