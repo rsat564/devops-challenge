@@ -8,4 +8,5 @@ provider "azurerm" {
       skip_shutdown_and_force_delete = false
     }
   }
+  storage_use_azuread = true
 }
