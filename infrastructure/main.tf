@@ -257,10 +257,10 @@ resource "azurerm_key_vault_secret" "vm_ssh_key" {
   name         = "vm-ssh-key-${each.key}-${var.environment}"
   value        = each.value.ssh_private_key
   key_vault_id = azurerm_key_vault.this.id
-  
-  content_type    = "ssh-private-key" 
+
+  content_type    = "ssh-private-key"
   expiration_date = "2027-12-31T00:00:00Z"
-  depends_on = [azurerm_role_assignment.deployer_kv_admin]
+  depends_on      = [azurerm_role_assignment.deployer_kv_admin]
 }
 
 #--------------------------------------------------------------
