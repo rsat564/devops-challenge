@@ -70,11 +70,11 @@ resource "azurerm_key_vault" "this" {
   location                      = azurerm_resource_group.this.location
   resource_group_name           = azurerm_resource_group.this.name
   tenant_id                     = data.azurerm_client_config.current.tenant_id
-  sku_name                      = "standard"
+  sku_name                      = var.environment == "prod" ? "premium" : "standard"
   purge_protection_enabled      = true
   soft_delete_retention_days    = 30
   public_network_access_enabled = var.environment == "prod" ? false : true
-  enable_rbac_authorization     = true
+  rbac_authorization_enabled    = true
   network_acls {
     default_action = var.environment == "prod" ? "Deny" : "Allow"
     bypass         = "AzureServices"
@@ -116,7 +116,7 @@ resource "azurerm_role_assignment" "deployer_kv_admin" {
 resource "azurerm_key_vault_key" "disk_encryption" {
   name         = "key-disk-encryption-${var.environment}"
   key_vault_id = azurerm_key_vault.this.id
-  key_type     = "RSA-HSM"
+  key_type     = var.environment == "prod" ? "RSA-HSM" : "RSA"
   key_size     = 4096
   key_opts     = ["decrypt", "encrypt", "wrapKey", "unwrapKey"]
 
