@@ -114,6 +114,7 @@ resource "azurerm_role_assignment" "deployer_kv_admin" {
 #--------------------------------------------------------------
 
 resource "azurerm_key_vault_key" "disk_encryption" {
+  # checkov:skip=CKV_AZURE_112:premium tire required for HSM
   name         = "key-disk-encryption-${var.environment}"
   key_vault_id = azurerm_key_vault.this.id
   key_type     = var.environment == "prod" ? "RSA-HSM" : "RSA"
