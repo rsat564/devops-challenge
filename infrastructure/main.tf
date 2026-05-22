@@ -109,6 +109,14 @@ resource "azurerm_role_assignment" "deployer_kv_admin" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+# Grants the deployer SP permission to read/write secrets (e.g. VM SSH keys).
+# Key Vault Crypto Officer only covers keys — secrets need a separate role.
+resource "azurerm_role_assignment" "deployer_kv_secrets" {
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
 #--------------------------------------------------------------
 # Disk Encryption Set (shared for all VMs)
 #--------------------------------------------------------------
@@ -275,7 +283,7 @@ resource "azurerm_key_vault_secret" "vm_ssh_key" {
 
   content_type    = "ssh-private-key"
   expiration_date = "2027-12-31T00:00:00Z"
-  depends_on      = [azurerm_role_assignment.deployer_kv_admin]
+  depends_on      = [azurerm_role_assignment.deployer_kv_secrets]
 }
 
 #--------------------------------------------------------------
