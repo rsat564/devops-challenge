@@ -3,6 +3,10 @@ name: "Promote Environment"
 on:
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: "Exact Git Tag to promote (e.g., v2026.05.22.45)"
+        required: true
+        type: string
       source:
         description: "Source environment"
         required: true
@@ -38,7 +42,7 @@ jobs:
             echo "::error::Cannot skip test. Promote dev→test→prod."
             exit 1
           fi
-          echo "Valid: ${{ inputs.source }} → ${{ inputs.target }}"
+          echo "Valid: ${{ inputs.source }} → ${{ inputs.target }} using tag ${{ inputs.release_tag }}"
 
   plan:
     name: "Plan - ${{ inputs.target }}"
@@ -52,11 +56,14 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }} # <--- THIS IS THE MAGIC. It pulls the exact tagged code.
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
           
-      - name: Azure Login (Service Principal)
+      - name: Azure Login
         uses: azure/login@v2
         with:
           creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'
@@ -92,11 +99,14 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }} # <--- Must also checkout the tag here
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
           
-      - name: Azure Login (Service Principal)
+      - name: Azure Login
         uses: azure/login@v2
         with:
           creds: '{"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}'

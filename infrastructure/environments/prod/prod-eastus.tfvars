@@ -30,7 +30,7 @@ vnets = {
       }
       "snet-mgmt" = {
         address_prefixes  = ["10.30.3.0/24"]
-        service_endpoints = []
+        service_endpoints = ["Microsoft.KeyVault"]
       }
     }
     nsg_rules = {

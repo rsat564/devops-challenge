@@ -21,14 +21,14 @@ on:
           - destroy
         default: plan
 
-  # Auto-deploy to DEV on push (merge) to main
-  push:
+  # Trigger on PRs to test the apply in dev immediately
+  pull_request:
     branches: [main]
     paths:
       - "infrastructure/**"
 
-  # Deploy to DEV on Pull Requests to main
-  pull_request:
+  # Trigger on merges to ensure main stays strictly in sync with dev
+  push:
     branches: [main]
     paths:
       - "infrastructure/**"
@@ -36,16 +36,21 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  security-events: write
 
 env:
   TF_VERSION: "1.7.0"
   WORKING_DIR: infrastructure
 
+# Ensure PRs and merges queue up properly so state files don't get locked concurrently
 concurrency:
-  group: terraform-${{ github.head_ref || github.ref_name }}-${{ github.event.inputs.environment || 'dev-eastus' }}
+  group: terraform-dev-eastus
   cancel-in-progress: false
 
 jobs:
+  # ─────────────────────────────────────────────────────────────
+  # 1. SETUP: Route the deployment appropriately
+  # ─────────────────────────────────────────────────────────────
   setup:
     name: "Setup"
     runs-on: ubuntu-latest
@@ -60,6 +65,7 @@ jobs:
             echo "environments=[\"${{ inputs.environment }}\"]" >> $GITHUB_OUTPUT
             echo "action=${{ inputs.action }}" >> $GITHUB_OUTPUT
           else
+            # Force PRs and Pushes to always target dev-eastus and apply
             echo "environments=[\"dev-eastus\"]" >> $GITHUB_OUTPUT
             echo "action=apply" >> $GITHUB_OUTPUT
           fi
@@ -73,11 +79,59 @@ jobs:
             echo "action=apply" >> $GITHUB_OUTPUT
           fi
 
+  # ─────────────────────────────────────────────────────────────
+  # 2. CI GATEKEEPER: Format, Validate, and Checkov Security
+  # ─────────────────────────────────────────────────────────────
+  ci-gatekeeper:
+    name: "CI Gatekeeper"
+    runs-on: ubuntu-latest
+    needs: setup
+    # Only run these automated checks on PRs and Pushes
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive -diff
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Init (Backend False for fast validation)
+        run: terraform init -backend=false
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Checkov Security Scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ${{ env.WORKING_DIR }}
+          framework: terraform
+          output_format: sarif
+          output_file_path: results.sarif
+          # NOTE: Set to false so it actively blocks the pipeline if a vulnerability is found
+          soft_fail: false 
+
+      - name: Upload SARIF report to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
+
+  # ─────────────────────────────────────────────────────────────
+  # 3. PLAN: Generate the infrastructure execution plan
+  # ─────────────────────────────────────────────────────────────
   plan:
     name: "Plan - ${{ matrix.environment }}"
     runs-on: ubuntu-latest
-    needs: setup
-    if: needs.setup.outputs.action != 'destroy'
+    # Wait for CI Gatekeeper to pass (if it ran)
+    needs: [setup, ci-gatekeeper]
+    if: always() && needs.setup.outputs.action != 'destroy' && (needs.ci-gatekeeper.result == 'success' || needs.ci-gatekeeper.result == 'skipped')
     strategy:
       matrix:
         environment: ${{ fromJSON(needs.setup.outputs.environments) }}
@@ -111,8 +165,7 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
-          # Use pipefail so 'tee' doesn't swallow the Terraform error
-          set -o pipefail 
+          set -o pipefail
           terraform plan \
             -var-file=environments/${{ env.ENV_FOLDER }}/${{ matrix.environment }}.tfvars \
             -out=${{ matrix.environment }}.tfplan \
@@ -120,7 +173,6 @@ jobs:
             -input=false \
             2>&1 | tee plan_output.txt
         working-directory: ${{ env.WORKING_DIR }}
-        continue-on-error: true
 
       - name: Upload Plan
         uses: actions/upload-artifact@v4
@@ -129,10 +181,9 @@ jobs:
           path: ${{ env.WORKING_DIR }}/${{ matrix.environment }}.tfplan
           retention-days: 5
 
-      - name: Fail on Error
-        if: steps.plan.outcome == 'failure'
-        run: exit 1
-
+  # ─────────────────────────────────────────────────────────────
+  # 4. APPLY: Execute the plan against Azure
+  # ─────────────────────────────────────────────────────────────
   apply:
     name: "Apply - ${{ matrix.environment }}"
     runs-on: ubuntu-latest
@@ -182,6 +233,9 @@ jobs:
             ${{ matrix.environment }}.tfplan
         working-directory: ${{ env.WORKING_DIR }}
 
+  # ─────────────────────────────────────────────────────────────
+  # 5. DESTROY: Manual teardown via workflow_dispatch
+  # ─────────────────────────────────────────────────────────────
   destroy:
     name: "Destroy - ${{ matrix.environment }}"
     runs-on: ubuntu-latest
@@ -223,3 +277,31 @@ jobs:
             -auto-approve \
             -input=false
         working-directory: ${{ env.WORKING_DIR }}
+
+# ─────────────────────────────────────────────────────────────
+# 6. CREATE RELEASE TAG: Runs only on main after successful dev apply
+# ─────────────────────────────────────────────────────────────
+  create-release-tag:
+    name: "Create Release Tag"
+    runs-on: ubuntu-latest
+    needs: apply 
+    # STRICT GATE: Only create tags on merges to main, NOT on Pull Requests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write # Required to push tags to the repo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate and Push Git Tag
+        run: |
+          # Create a version string based on date and pipeline run number (e.g., v2026.05.22.45)
+          TAG_NAME="v$(date +'%Y.%m.%d').${{ github.run_number }}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a $TAG_NAME -m "Automated release tag after successful dev deploy"
+          git push origin $TAG_NAME
+          
+          echo "## 🏷️ Release Tag Created" >> $GITHUB_STEP_SUMMARY
+          echo "Tag **\`$TAG_NAME\`** is now ready for promotion to Test and Prod." >> $GITHUB_STEP_SUMMARY

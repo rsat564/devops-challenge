@@ -26,11 +26,11 @@ vnets = {
       }
       "snet-db" = {
         address_prefixes  = ["10.10.2.0/24"]
-        service_endpoints = ["Microsoft.Sql"]
+        service_endpoints = ["Microsoft.Sql", "Microsoft.KeyVault"]
       }
       "snet-mgmt" = {
         address_prefixes  = ["10.10.3.0/24"]
-        service_endpoints = []
+        service_endpoints = ["Microsoft.KeyVault"]
       }
     }
     nsg_rules = {

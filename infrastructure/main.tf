@@ -145,28 +145,6 @@ resource "azurerm_role_assignment" "des_kv_access" {
 }
 
 #--------------------------------------------------------------
-# Storage Encryption Key
-#--------------------------------------------------------------
-
-resource "azurerm_key_vault_key" "storage_encryption" {
-  name         = "key-storage-encryption-${var.environment}"
-  key_vault_id = azurerm_key_vault.this.id
-  key_type     = "RSA"
-  key_size     = 4096
-  key_opts     = ["decrypt", "encrypt", "wrapKey", "unwrapKey"]
-
-  rotation_policy {
-    automatic {
-      time_before_expiry = "P30D"
-    }
-    expire_after         = "P365D"
-    notify_before_expiry = "P29D"
-  }
-
-  depends_on = [azurerm_role_assignment.deployer_kv_admin]
-}
-
-#--------------------------------------------------------------
 # Module: Storage Accounts (scalable - supports multiple)
 #--------------------------------------------------------------
 
@@ -194,14 +172,6 @@ module "storage" {
   tags = merge(local.common_tags, { StorageAccount = each.key })
 }
 
-# Grant storage accounts access to Key Vault for CMK encryption
-resource "azurerm_role_assignment" "storage_kv_access" {
-  for_each = module.storage
-
-  scope                = azurerm_key_vault.this.id
-  role_definition_name = "Key Vault Crypto Service Encryption User"
-  principal_id         = each.value.identity_principal_id
-}
 
 #--------------------------------------------------------------
 # Recovery Services Vault (shared for all VM backups)
