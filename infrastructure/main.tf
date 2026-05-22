@@ -251,8 +251,9 @@ module "vm" {
   data_disks                    = each.value.data_disks
   disk_encryption_set_id        = azurerm_disk_encryption_set.this.id
 
-  # Backup
-  enable_backup       = each.value.enable_backup
+  # Backup — only enabled in prod; dev/test skip backup to avoid transient
+  # Azure Backup service errors and reduce cost.
+  enable_backup       = var.environment == "prod" ? each.value.enable_backup : false
   recovery_vault_name = azurerm_recovery_services_vault.this.name
   backup_policy_id    = azurerm_backup_policy_vm.this.id
 
