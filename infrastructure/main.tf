@@ -74,7 +74,7 @@ resource "azurerm_key_vault" "this" {
   purge_protection_enabled      = true
   soft_delete_retention_days    = 30
   public_network_access_enabled = var.environment == "prod" ? false : true
-
+  enable_rbac_authorization     = true
   network_acls {
     default_action = var.environment == "prod" ? "Deny" : "Allow"
     bypass         = "AzureServices"
