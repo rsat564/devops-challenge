@@ -93,7 +93,10 @@ resource "azurerm_key_vault" "this" {
 }
 
 # Protect Key Vault from accidental deletion
+# Requires Microsoft.Authorization/locks/write (Owner or User Access Administrator role)
 resource "azurerm_management_lock" "kv_lock" {
+  count = var.enable_management_lock ? 1 : 0
+
   name       = "lock-${azurerm_key_vault.this.name}"
   scope      = azurerm_key_vault.this.id
   lock_level = "CanNotDelete"

@@ -122,6 +122,12 @@ variable "vms" {
 # Storage Variables
 #--------------------------------------------------------------
 
+variable "enable_management_lock" {
+  description = "Create a CanNotDelete management lock on the Key Vault. Requires Microsoft.Authorization/locks/write (Owner or User Access Administrator). Set to false when the deployer SP only has Contributor."
+  type        = bool
+  default     = true
+}
+
 variable "storage_accounts" {
   description = "Map of Storage Account configurations. Each key creates a separate Storage Account."
   type = map(object({

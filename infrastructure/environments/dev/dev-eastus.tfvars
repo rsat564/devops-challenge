@@ -3,6 +3,9 @@
 # =============================================================
 
 environment  = "dev"
+
+# Deployer SP in dev has Contributor only (no locks/write); set true once Owner/UAA is granted
+enable_management_lock = false
 location     = "eastus"
 project_name = "cloudops"
 cost_center  = "engineering"
