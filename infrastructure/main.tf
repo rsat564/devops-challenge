@@ -209,9 +209,14 @@ resource "azurerm_backup_policy_vm" "this" {
   resource_group_name = azurerm_resource_group.this.name
   recovery_vault_name = azurerm_recovery_services_vault.this.name
 
+  # V2 (Enhanced) policy is required for VMs deployed in Availability Zones.
+  # Standard (V1) policy is rejected by Azure for zonal VMs.
+  policy_type = "V2"
+
   backup {
     frequency = "Daily"
     time      = "02:00"
+    timezone  = "UTC"
   }
 
   retention_daily {
