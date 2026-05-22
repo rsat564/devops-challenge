@@ -64,8 +64,8 @@ module "vnet" {
 #--------------------------------------------------------------
 
 resource "azurerm_key_vault" "this" {
-# checkov:skip=CKV_AZURE_109:Firewall rule default action 'Allow' is required for dev testing right now.
-# checkov:skip=CKV2_AZURE_32:Private Endpoints are not yet configured for this environment.
+  # checkov:skip=CKV_AZURE_109:Firewall rule default action 'Allow' is required for dev testing right now.
+  # checkov:skip=CKV2_AZURE_32:Private Endpoints are not yet configured for this environment.
   name                          = "kv-${var.project_name}-${var.environment}-${random_string.suffix.result}"
   location                      = azurerm_resource_group.this.location
   resource_group_name           = azurerm_resource_group.this.name
