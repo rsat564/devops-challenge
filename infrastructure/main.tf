@@ -44,8 +44,9 @@ data "azurerm_client_config" "current" {}
 #--------------------------------------------------------------
 # Module: Virtual Networks (scalable - supports multiple)
 #--------------------------------------------------------------
-# checkov:skip=CKV_TF_1:Organization standard uses semantic release tags
+
 module "vnet" {
+  # checkov:skip=CKV_TF_1:Organization standard uses semantic release tags
   source   = "git::https://github.com/rsat564/tfmodules.git//vnet?ref=v1.0.0"
   for_each = var.vnets
 
@@ -61,9 +62,10 @@ module "vnet" {
 #--------------------------------------------------------------
 # Key Vault (shared security resource)
 #--------------------------------------------------------------
+
+resource "azurerm_key_vault" "this" {
 # checkov:skip=CKV_AZURE_109:Firewall rule default action 'Allow' is required for dev testing right now.
 # checkov:skip=CKV2_AZURE_32:Private Endpoints are not yet configured for this environment.
-resource "azurerm_key_vault" "this" {
   name                          = "kv-${var.project_name}-${var.environment}-${random_string.suffix.result}"
   location                      = azurerm_resource_group.this.location
   resource_group_name           = azurerm_resource_group.this.name
@@ -151,6 +153,7 @@ resource "azurerm_role_assignment" "des_kv_access" {
 #--------------------------------------------------------------
 
 module "storage" {
+  # checkov:skip=CKV_TF_1:Organization standard uses semantic release tags
   source   = "git::https://github.com/rsat564/tfmodules.git//storage?ref=v1.0.0"
   for_each = var.storage_accounts
 
@@ -178,8 +181,9 @@ module "storage" {
 #--------------------------------------------------------------
 # Recovery Services Vault (shared for all VM backups)
 #--------------------------------------------------------------
-# checkov:skip=CKV2_AZURE_35:not now
+
 resource "azurerm_recovery_services_vault" "this" {
+  # checkov:skip=CKV2_AZURE_35:not now
   name                = "rsv-${local.name_prefix}"
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
@@ -221,6 +225,7 @@ resource "azurerm_backup_policy_vm" "this" {
 #--------------------------------------------------------------
 
 module "vm" {
+  # checkov:skip=CKV_TF_1:Organization standard uses semantic release tags
   source   = "git::https://github.com/rsat564/tfmodules.git//vm?ref=v1.0.0"
   for_each = var.vms
 
