@@ -1,11 +1,3 @@
-# CloudOps DevOps Challenge — Submission
-
-**Candidate**: Sathish Ramineni  
-**Date**: May 22, 2026  
-**Repository**: `github.com/rsat564/devops-challenge`
-
----
-
 ## 1. Challenge Summary
 
 Design and implement a production-ready Azure infrastructure using Terraform with:
